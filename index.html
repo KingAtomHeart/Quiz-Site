@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -685,6 +685,1179 @@
 
     function exportResults() {
       let text = 'NURSING BOARD REVIEW RESULTS\n';
+      text += '='.repeat(50) + '\n\n';
+      
+      results.forEach((r, i) => {
+        text += `${i + 1}) ${r.question}\n`;
+        text += `Your answer: ${r.userAnswer}\n`;
+        text += `Correct answer: ${r.correctAnswer} ${r.correct ? '[CORRECT]' : '[INCORRECT]'}\n`;
+        text += `Points gained: ${r.points}\n\n`;
+      });
+      
+      text += '='.repeat(50) + '\n';
+      text += `TOTAL POINTS: ${totalPoints}\n`;
+      text += `QUESTIONS ANSWERED: ${results.length}\n`;
+      text += `CORRECT: ${results.filter(r => r.correct).length}\n`;
+      text += `ACCURACY: ${((results.filter(r => r.correct).length / results.length) * 100).toFixed(1)}%\n`;
+
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `nursing-quiz-results-${new Date().toISOString().split('T')[0]}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (!quizActive) return;
+
+      const answerReview = document.getElementById('answerReview');
+      
+      if (!answerReview || answerReview.style.display === 'none') {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitAnswer();
+        }
+      } else {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          markCorrect();
+        } else if (e.key === 'Backspace') {
+          e.preventDefault();
+          markIncorrect();
+        }
+      }
+    });
+  </script>
+</body>
+</html> -->
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mallow</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background-color: #ffe4e6;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    .container {
+      max-width: 42rem;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .card {
+      background: white;
+      border-radius: 1.5rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      padding: 2rem;
+    }
+
+    .upload-section {
+      text-align: center;
+      padding: 3rem 1rem;
+    }
+
+    .upload-section h1 {
+      font-size: 2rem;
+      color: #334155;
+      margin-bottom: 1rem;
+    }
+
+    .upload-section p {
+      color: #64748b;
+      margin-bottom: 2rem;
+    }
+
+    .file-input-wrapper {
+      position: relative;
+      display: inline-block;
+      margin-bottom: 1rem;
+    }
+
+    .file-input {
+      opacity: 0;
+      position: absolute;
+      z-index: -1;
+    }
+
+    .file-label {
+      display: inline-block;
+      background: #d4c7eb;
+      color: #334155;
+      padding: 1rem 2rem;
+      border-radius: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .file-label:hover {
+      background: #bfabe1;
+    }
+
+    .format-info {
+      background: #f1f5f9;
+      padding: 1.5rem;
+      border-radius: 1rem;
+      text-align: left;
+      margin-top: 2rem;
+    }
+
+    .format-info h3 {
+      color: #334155;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+
+    .format-info code {
+      background: white;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      display: block;
+      margin: 0.5rem 0;
+      font-size: 0.9rem;
+      overflow-x: auto;
+    }
+
+    .progress-bar {
+      margin-bottom: 2rem;
+    }
+
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-bottom: 0.5rem;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 0.5rem;
+      background: #e2e8f0;
+      border-radius: 1rem;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #bfabe1;
+      transition: width 0.3s;
+    }
+
+    .difficulty-badge {
+      display: inline-block;
+      padding: 0.4rem 0.8rem;
+      border-radius: 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .difficulty-green { background: #d1fae5; color: #065f46; }
+    .difficulty-yellow { background: #fef3c7; color: #92400e; }
+    .difficulty-orange { background: #fed7aa; color: #9a3412; }
+    .difficulty-red { background: #fee2e2; color: #991b1b; }
+
+    .question-card {
+      border-radius: 1.2rem;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      border: 3px solid transparent;
+    }
+
+    .question-card.green { background: #d1fae5; border-color: #6ee7b7; }
+    .question-card.yellow { background: #fef3c7; border-color: #fcd34d; }
+    .question-card.orange { background: #fed7aa; border-color: #fdba74; }
+    .question-card.red { background: #fee2e2; border-color: #fca5a5; }
+
+    .question-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #1f2937;
+      line-height: 1.6;
+      margin-bottom: 0.5rem;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 1rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 0.8rem;
+      font-size: 1rem;
+      margin-bottom: 0;
+      transition: border-color 0.3s;
+      font-family: inherit;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: #bfabe1;
+      background: #f9f5ff;
+    }
+
+    .input-wrapper {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 1rem;
+      border: none;
+      border-radius: 0.8rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+      flex-shrink: 0;
+    }
+
+    .btn-primary {
+      background: #d4c7eb;
+      color: #334155;
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #bfabe1;
+    }
+
+    .btn-primary:disabled {
+      background: #f1f5f9;
+      color: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    .btn-cancel {
+      background: #f1f5f9;
+      color: #64748b;
+      padding: 0.75rem 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .btn-cancel:hover {
+      background: #e2e8f0;
+    }
+
+    .answer-section {
+      background: rgba(255, 255, 255, 0.6);
+      padding: 1.25rem;
+      border-radius: 0.8rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .answer-label {
+      font-size: 0.8rem;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.4rem;
+      font-weight: 600;
+    }
+
+    .answer-text {
+      font-size: 1.1rem;
+      color: #1f2937;
+      margin-bottom: 1.25rem;
+      font-weight: 500;
+    }
+
+    .correct-answer {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #065f46;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .btn-success {
+      flex: 1;
+      background: #b3e1d1;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-success:hover {
+      background: #8dd2ba;
+    }
+
+    .btn-error {
+      flex: 1;
+      background: #fecaca;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-error:hover {
+      background: #fca5a5;
+    }
+
+    .question-prompt {
+      text-align: center;
+      color: #475569;
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .keyboard-hint {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.75rem;
+      margin-top: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .results-container {
+      text-align: center;
+    }
+
+    .results-title {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #334155;
+      margin-bottom: 0.5rem;
+    }
+
+    .results-subtitle {
+      color: #64748b;
+      margin-bottom: 2rem;
+    }
+
+    .stats-grid {
+      background: #e9e3f5;
+      padding: 1.5rem;
+      border-radius: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: bold;
+    }
+
+    .stat-value.lavender { color: #8b5fb8; }
+    .stat-value.mint { color: #3a9d7c; }
+
+    .stat-label {
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+
+    .accuracy {
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .timer-display {
+      text-align: center;
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #8b5fb8;
+      margin-bottom: 1rem;
+      min-height: 3rem;
+    }
+
+    .timer-display.warning {
+      color: #dc2626;
+      animation: pulse 0.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .difficulty-selector {
+      background: #f1f5f9;
+      padding: 1.5rem;
+      border-radius: 1rem;
+      margin-top: 2rem;
+    }
+
+    .difficulty-selector h3 {
+      color: #334155;
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+      text-align: center;
+    }
+
+    .difficulty-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .difficulty-option {
+      padding: 1.25rem;
+      border: 3px solid transparent;
+      border-radius: 0.8rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+      background: white;
+    }
+
+    .difficulty-option:hover {
+      transform: translateX(4px);
+    }
+
+    .difficulty-option.selected {
+      border-color: #334155;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .difficulty-option.easy {
+      background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+      border-color: #6ee7b7;
+    }
+
+    .difficulty-option.easy.selected {
+      border-color: #065f46;
+    }
+
+    .difficulty-option.medium {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      border-color: #fcd34d;
+    }
+
+    .difficulty-option.medium.selected {
+      border-color: #92400e;
+    }
+
+    .difficulty-option.hard {
+      background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+      border-color: #fb923c;
+    }
+
+    .difficulty-option.hard.selected {
+      border-color: #9a3412;
+    }
+
+    .difficulty-option.panic {
+      background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+      border-color: #fca5a5;
+    }
+
+    .difficulty-option.panic.selected {
+      border-color: #991b1b;
+    }
+
+    .difficulty-name {
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 0.25rem;
+      font-size: 1.1rem;
+    }
+
+    .difficulty-desc {
+      font-size: 0.875rem;
+      color: #475569;
+      font-weight: 500;
+    }
+
+    .stats-history {
+      background: #f1f5f9;
+      padding: 1.5rem;
+      border-radius: 1rem;
+      margin-bottom: 1.5rem;
+      text-align: left;
+    }
+
+    .stats-history h3 {
+      color: #334155;
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem;
+      background: white;
+      border-radius: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .history-date {
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+
+    .history-score {
+      font-weight: 600;
+      color: #8b5fb8;
+    }
+
+    .view-stats-btn {
+      background: #e9e3f5;
+      color: #334155;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 0.8rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 1rem;
+      width: 100%;
+      transition: background 0.3s;
+    }
+
+    .view-stats-btn:hover {
+      background: #d4c7eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="uploadScreen" class="card upload-section">
+      <h1>Topnotcher hottie quiz 2025✨🕯️🤞🥐</h1>
+      <p>Import your questions to start studying</p>
+      
+      <div class="file-input-wrapper">
+        <input type="file" id="fileInput" class="file-input" accept=".txt,.csv" onchange="handleFileUpload(event)">
+        <label for="fileInput" class="file-label">Choose File</label>
+      </div>
+      <div id="fileName" style="color: #64748b; margin-top: 0.5rem;"></div>
+
+      <button class="view-stats-btn" onclick="showStatsScreen()">View Score History</button>
+
+      <div class="format-info">
+        <h3>File Format</h3>
+        <p style="color: #64748b; margin-bottom: 1rem;">Each line should contain: Question, Answer, Points, Difficulty</p>
+        <code>Question text, Answer, Points, Difficulty</code>
+        <p style="color: #64748b; margin-top: 1rem; font-size: 0.875rem;">
+          <strong>Example:</strong><br>
+          Normal Heart Rate?, 60–100 bpm, 1, Green<br>
+          <strong>Difficulty & Points:</strong><br>
+          Green (Easy) = 1 point<br>
+          Yellow (Medium) = 2 points<br>
+          Orange (Hard) = 3 points<br>
+          Red (Very Hard) = 4 points
+        </p>
+      </div>
+    </div>
+
+    <div id="difficultyScreen" class="card" style="display: none;">
+      <div class="upload-section">
+        <h1>Select Quiz Difficulty</h1>
+        <p>Choose how much time you want per question</p>
+
+        <div class="difficulty-selector">
+          <div class="difficulty-options">
+            <div class="difficulty-option easy selected" onclick="selectDifficulty('easy')">
+              <div class="difficulty-name">😊 Easy</div>
+              <div class="difficulty-desc">No timer - Take your time</div>
+            </div>
+            <div class="difficulty-option medium" onclick="selectDifficulty('medium')">
+              <div class="difficulty-name">😤 Medium</div>
+              <div class="difficulty-desc">15 seconds per question</div>
+            </div>
+            <div class="difficulty-option hard" onclick="selectDifficulty('hard')">
+              <div class="difficulty-name">😰 Hard</div>
+              <div class="difficulty-desc">10 seconds per question</div>
+            </div>
+            <div class="difficulty-option panic" onclick="selectDifficulty('panic')">
+              <div class="difficulty-name">😱 AAAAAAAAAAAA!</div>
+              <div class="difficulty-desc">5 seconds per question</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem; margin-top: 2rem;">
+          <button class="btn btn-cancel" style="flex: 1; margin: 0;" onclick="backToUpload()">Back</button>
+          <button class="btn btn-primary" style="flex: 2; margin: 0;" onclick="startQuizFromDifficulty()">Start Quiz</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="quizScreen" class="card" style="display: none;">
+      <button class="btn btn-cancel" onclick="cancelQuiz()">Cancel Quiz</button>
+      
+      <div class="progress-bar">
+        <div class="progress-info">
+          <span id="progressText">1 of 58</span>
+          <span id="pointsText">0 points</span>
+        </div>
+        <div class="progress-track">
+          <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div id="timerDisplay" class="timer-display"></div>
+
+      <div id="questionBox"></div>
+    </div>
+
+    <div id="resultsScreen" class="card" style="display: none;">
+      <div class="results-container">
+        <h2 class="results-title">Quiz Complete babyyy aaaa</h2>
+        <p class="results-subtitle">Great job, babut!</p>
+
+        <div class="stats-grid">
+          <div class="stats-row">
+            <div class="stat-item">
+              <div class="stat-value lavender" id="finalPoints">0</div>
+              <div class="stat-label">Total Points</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value mint" id="correctCount">0</div>
+              <div class="stat-label">Correct Answers</div>
+            </div>
+          </div>
+          <div class="accuracy" id="accuracy">0% Accuracy</div>
+        </div>
+
+        <div class="button-group" style="margin-bottom: 0.75rem;">
+          <button class="btn btn-success" onclick="exportResults()">
+            <span>Export Results</span>
+          </button>
+          <button class="btn btn-primary" onclick="restartSameFile()">
+            <span>Restart Quiz</span>
+          </button>
+        </div>
+
+        <div class="button-group">
+          <button class="btn btn-success" onclick="backToMainMenu()">
+            <span>Main Menu</span>
+          </button>
+          <button class="btn btn-primary" onclick="showStatsScreen()">
+            <span>Score History</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="statsScreen" class="card" style="display: none;">
+      <button class="btn btn-cancel" onclick="hideStatsScreen()">Back</button>
+      
+      <div class="results-container">
+        <h2 class="results-title">Score History</h2>
+        <p class="results-subtitle">Track your progress over time</p>
+
+        <div class="stats-grid">
+          <div class="stats-row">
+            <div class="stat-item">
+              <div class="stat-value lavender" id="avgScore">0</div>
+              <div class="stat-label">Today's Average</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value mint" id="totalQuizzes">0</div>
+              <div class="stat-label">Total Quizzes</div>
+            </div>
+          </div>
+          <div class="accuracy" id="overallAccuracy">0% Overall Accuracy</div>
+        </div>
+
+        <div class="stats-history">
+          <h3>Recent Attempts</h3>
+          <div id="historyList"></div>
+        </div>
+
+        <button class="btn btn-error" onclick="clearHistory()" style="width: 100%;">
+          <span>Clear History</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let questions = [];
+    let originalQuestions = [];
+    let currentIndex = 0;
+    let userAnswer = '';
+    let results = [];
+    let totalPoints = 0;
+    let isAnswerSubmitted = false;
+    let quizActive = false;
+    let selectedDifficulty = 'easy';
+    let timerInterval = null;
+    let timeRemaining = 0;
+    let fromResultsScreen = false;
+
+    function selectDifficulty(difficulty) {
+      selectedDifficulty = difficulty;
+      document.querySelectorAll('.difficulty-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+      event.target.closest('.difficulty-option').classList.add('selected');
+    }
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      document.getElementById('fileName').textContent = `Selected: ${file.name}`;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const content = e.target.result;
+        parseFile(content);
+      };
+      reader.readAsText(file);
+    }
+
+    function parseFile(content) {
+      const lines = content.split('\n').filter(line => line.trim());
+      questions = [];
+
+      lines.forEach(line => {
+        const delimiter = line.includes('\t') ? '\t' : ',';
+        const parts = line.split(delimiter).map(p => p.trim());
+        
+        if (parts.length >= 2) {
+          const color = parts[3] ? parts[3].toLowerCase() : 'green';
+          
+          let points = 1;
+          if (color === 'green') {
+            points = 1;
+          } else if (color === 'yellow') {
+            points = 2;
+          } else if (color === 'orange') {
+            points = 3;
+          } else if (color === 'red') {
+            points = 4;
+          }
+          
+          questions.push({
+            q: parts[0],
+            a: parts[1],
+            pts: points,
+            color: color
+          });
+        }
+      });
+
+      if (questions.length > 0) {
+        originalQuestions = [...questions];
+        showDifficultyScreen();
+      } else {
+        alert('No valid questions found in file. Please check the format.');
+      }
+    }
+
+    function showDifficultyScreen() {
+      document.getElementById('uploadScreen').style.display = 'none';
+      document.getElementById('difficultyScreen').style.display = 'block';
+      selectedDifficulty = 'easy';
+      document.querySelectorAll('.difficulty-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+      document.querySelector('.difficulty-option.easy').classList.add('selected');
+    }
+
+    function backToUpload() {
+      document.getElementById('difficultyScreen').style.display = 'none';
+      document.getElementById('uploadScreen').style.display = 'block';
+    }
+
+    function startQuizFromDifficulty() {
+      shuffleQuestions();
+      document.getElementById('difficultyScreen').style.display = 'none';
+      startQuiz();
+    }
+
+    function shuffleQuestions() {
+      questions.sort(() => Math.random() - 0.5);
+    }
+
+    function startQuiz() {
+      document.getElementById('quizScreen').style.display = 'block';
+      currentIndex = 0;
+      results = [];
+      totalPoints = 0;
+      isAnswerSubmitted = false;
+      quizActive = true;
+      displayQuestion();
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      
+      const timerDisplay = document.getElementById('timerDisplay');
+      
+      if (selectedDifficulty === 'easy') {
+        timerDisplay.textContent = '';
+        return;
+      }
+
+      let duration = 0;
+      if (selectedDifficulty === 'medium') duration = 15;
+      else if (selectedDifficulty === 'hard') duration = 10;
+      else if (selectedDifficulty === 'panic') duration = 5;
+
+      timeRemaining = duration;
+      updateTimerDisplay();
+
+      timerInterval = setInterval(() => {
+        timeRemaining--;
+        updateTimerDisplay();
+
+        if (timeRemaining <= 0) {
+          clearInterval(timerInterval);
+          timeoutAnswer();
+        }
+      }, 1000);
+    }
+
+    function updateTimerDisplay() {
+      const timerDisplay = document.getElementById('timerDisplay');
+      timerDisplay.textContent = `${timeRemaining}s`;
+      
+      if (timeRemaining <= 3) {
+        timerDisplay.classList.add('warning');
+      } else {
+        timerDisplay.classList.remove('warning');
+      }
+    }
+
+    function timeoutAnswer() {
+      if (isAnswerSubmitted) return;
+      
+      const answerInput = document.getElementById('userAnswer');
+      userAnswer = answerInput ? answerInput.value.trim() : '';
+      
+      const current = questions[currentIndex];
+      
+      document.getElementById('userAnswerDisplay').textContent = userAnswer || '(No answer - time expired)';
+      document.getElementById('correctAnswerDisplay').textContent = current.a;
+
+      document.getElementById('answerInput').style.display = 'none';
+      document.getElementById('answerReview').style.display = 'block';
+      isAnswerSubmitted = true;
+    }
+
+    function displayQuestion() {
+      const current = questions[currentIndex];
+      const questionBox = document.getElementById('questionBox');
+      
+      isAnswerSubmitted = false;
+      
+      const difficultyText = {
+        'green': 'Easy',
+        'yellow': 'Medium',
+        'orange': 'Hard',
+        'red': 'Very Hard',
+        'default': 'Standard'
+      };
+
+      const pointText = current.pts === 1 ? 'pt' : 'pts';
+      
+      questionBox.innerHTML = `
+        <div class="question-card ${current.color}">
+          <div class="difficulty-badge difficulty-${current.color}">
+            ${difficultyText[current.color] || 'Easy'} • ${current.pts} ${pointText}
+          </div>
+          <h2 class="question-title">${current.q}</h2>
+        </div>
+
+        <div id="answerInput">
+          <div class="input-wrapper">
+            <input type="text" id="userAnswer" class="input-field" placeholder="Type your answer..." autofocus>
+            <button class="btn btn-primary" onclick="submitAnswer()">Submit</button>
+          </div>
+          <div class="keyboard-hint">Press Enter to submit</div>
+        </div>
+
+        <div id="answerReview" style="display: none;">
+          <div class="answer-section">
+            <div class="answer-label">Your answer:</div>
+            <div class="answer-text" id="userAnswerDisplay"></div>
+            
+            <div class="answer-label">Correct answer:</div>
+            <div class="correct-answer">
+              <span id="correctAnswerDisplay"></span>
+            </div>
+          </div>
+
+          <div class="question-prompt">Did you get it correct?</div>
+
+          <div class="button-group">
+            <button class="btn btn-success" onclick="markCorrect()">
+              <span>Yes</span>
+            </button>
+            <button class="btn btn-error" onclick="markIncorrect()">
+              <span>No</span>
+            </button>
+          </div>
+          <div class="keyboard-hint">Enter for Yes • Backspace for No</div>
+        </div>
+      `;
+      
+      document.getElementById('progressText').textContent = `${currentIndex + 1} of ${questions.length}`;
+      document.getElementById('pointsText').textContent = `${totalPoints} points`;
+      const progress = ((currentIndex) / questions.length) * 100;
+      document.getElementById('progressFill').style.width = `${progress}%`;
+
+      const inputField = document.getElementById('userAnswer');
+      if (inputField) {
+        inputField.focus();
+      }
+
+      startTimer();
+    }
+
+    function submitAnswer() {
+      clearInterval(timerInterval);
+      
+      const answer = document.getElementById('userAnswer').value.trim();
+      userAnswer = answer;
+      const current = questions[currentIndex];
+
+      document.getElementById('userAnswerDisplay').textContent = answer || '(No answer)';
+      document.getElementById('correctAnswerDisplay').textContent = current.a;
+
+      document.getElementById('answerInput').style.display = 'none';
+      document.getElementById('answerReview').style.display = 'block';
+      document.getElementById('timerDisplay').textContent = '';
+      isAnswerSubmitted = true;
+    }
+
+    function markCorrect() {
+      const current = questions[currentIndex];
+      results.push({
+        question: current.q,
+        userAnswer: userAnswer,
+        correctAnswer: current.a,
+        points: current.pts,
+        correct: true
+      });
+      totalPoints += current.pts;
+      moveNext();
+    }
+
+    function markIncorrect() {
+      const current = questions[currentIndex];
+      results.push({
+        question: current.q,
+        userAnswer: userAnswer,
+        correctAnswer: current.a,
+        points: 0,
+        correct: false
+      });
+      moveNext();
+    }
+
+    function moveNext() {
+      if (currentIndex + 1 < questions.length) {
+        currentIndex++;
+        displayQuestion();
+      } else {
+        quizActive = false;
+        clearInterval(timerInterval);
+        saveQuizResults();
+        showResults();
+      }
+    }
+
+    function saveQuizResults() {
+      const history = getQuizHistory();
+      const correctCount = results.filter(r => r.correct).length;
+      const accuracy = ((correctCount / results.length) * 100).toFixed(1);
+      
+      history.push({
+        date: new Date().toISOString(),
+        points: totalPoints,
+        correct: correctCount,
+        total: results.length,
+        accuracy: parseFloat(accuracy),
+        difficulty: selectedDifficulty
+      });
+
+      saveToMemory('quizHistory', history);
+    }
+
+    function getQuizHistory() {
+      return loadFromMemory('quizHistory') || [];
+    }
+
+    function saveToMemory(key, value) {
+      window.quizData = window.quizData || {};
+      window.quizData[key] = value;
+    }
+
+    function loadFromMemory(key) {
+      return window.quizData ? window.quizData[key] : null;
+    }
+
+    function showResults() {
+      document.getElementById('quizScreen').style.display = 'none';
+      document.getElementById('resultsScreen').style.display = 'block';
+
+      const correctCount = results.filter(r => r.correct).length;
+      const accuracy = ((correctCount / results.length) * 100).toFixed(1);
+
+      document.getElementById('finalPoints').textContent = totalPoints;
+      document.getElementById('correctCount').textContent = correctCount;
+      document.getElementById('accuracy').textContent = `${accuracy}% Accuracy`;
+    }
+
+    function showStatsScreen() {
+      const fromResults = document.getElementById('resultsScreen').style.display === 'block';
+      
+      document.getElementById('uploadScreen').style.display = 'none';
+      document.getElementById('resultsScreen').style.display = 'none';
+      document.getElementById('statsScreen').style.display = 'block';
+      
+      fromResultsScreen = fromResults;
+      
+      const history = getQuizHistory();
+      
+      if (history.length === 0) {
+        document.getElementById('avgScore').textContent = '0';
+        document.getElementById('totalQuizzes').textContent = '0';
+        document.getElementById('overallAccuracy').textContent = '0% Overall Accuracy';
+        document.getElementById('historyList').innerHTML = '<p style="color: #94a3b8; text-align: center; padding: 2rem;">No quiz history yet. Complete a quiz to see your stats!</p>';
+        return;
+      }
+
+      const today = new Date().toDateString();
+      const todayQuizzes = history.filter(h => new Date(h.date).toDateString() === today);
+      const dailyAvg = todayQuizzes.length > 0 
+        ? (todayQuizzes.reduce((sum, q) => sum + q.points, 0) / todayQuizzes.length).toFixed(1)
+        : 0;
+      
+      const totalCorrect = history.reduce((sum, q) => sum + q.correct, 0);
+      const totalQuestions = history.reduce((sum, q) => sum + q.total, 0);
+      const overallAccuracy = totalQuestions > 0 ? ((totalCorrect / totalQuestions) * 100).toFixed(1) : 0;
+
+      document.getElementById('avgScore').textContent = dailyAvg;
+      document.getElementById('totalQuizzes').textContent = history.length;
+      document.getElementById('overallAccuracy').textContent = `${overallAccuracy}% Overall Accuracy`;
+
+      const historyList = document.getElementById('historyList');
+      const recentHistory = history.slice(-10).reverse();
+      
+      historyList.innerHTML = recentHistory.map(h => {
+        const date = new Date(h.date);
+        const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const difficultyEmoji = {
+          'easy': '😊',
+          'medium': '😤',
+          'hard': '😰',
+          'panic': '😱'
+        };
+        return `
+          <div class="history-item">
+            <div>
+              <div class="history-date">${dateStr} ${difficultyEmoji[h.difficulty] || ''}</div>
+              <div style="font-size: 0.75rem; color: #94a3b8;">${h.correct}/${h.total} correct (${h.accuracy}%)</div>
+            </div>
+            <div class="history-score">${h.points} pts</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function hideStatsScreen() {
+      document.getElementById('statsScreen').style.display = 'none';
+      
+      if (fromResultsScreen) {
+        document.getElementById('resultsScreen').style.display = 'block';
+        fromResultsScreen = false;
+      } else {
+        document.getElementById('uploadScreen').style.display = 'block';
+      }
+    }
+
+    function clearHistory() {
+      if (confirm('Are you sure you want to clear all quiz history? This cannot be undone.')) {
+        saveToMemory('quizHistory', []);
+        showStatsScreen();
+      }
+    }
+
+    function cancelQuiz() {
+      if (confirm('Are you sure you want to cancel the quiz? Your progress will not be saved.')) {
+        clearInterval(timerInterval);
+        quizActive = false;
+        document.getElementById('quizScreen').style.display = 'none';
+        document.getElementById('uploadScreen').style.display = 'block';
+      }
+    }
+
+    function resetQuiz() {
+      quizActive = false;
+      clearInterval(timerInterval);
+      questions = [];
+      originalQuestions = [];
+      results = [];
+      totalPoints = 0;
+      currentIndex = 0;
+      userAnswer = '';
+      isAnswerSubmitted = false;
+      document.getElementById('fileName').textContent = '';
+      document.getElementById('fileInput').value = '';
+      document.getElementById('timerDisplay').textContent = '';
+    }
+
+    function restartSameFile() {
+      questions = [...originalQuestions];
+      document.getElementById('resultsScreen').style.display = 'none';
+      showDifficultyScreen();
+    }
+
+    function backToMainMenu() {
+      resetQuiz();
+      document.getElementById('resultsScreen').style.display = 'none';
+      document.getElementById('uploadScreen').style.display = 'block';
+    }
+
+    function exportResults() {
+      let text = 'NURSING BOARD REVIEW RESULTS\n';
+      text += '='.repeat(50) + '\n';
+      text += `Difficulty: ${selectedDifficulty.toUpperCase()}\n`;
+      text += `Date: ${new Date().toLocaleString()}\n`;
       text += '='.repeat(50) + '\n\n';
       
       results.forEach((r, i) => {
